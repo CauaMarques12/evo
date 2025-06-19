@@ -1,7 +1,6 @@
 version: "3.7"
 
 services:
-
   traefik:
     image: traefik:2.11.2
     command:
@@ -23,19 +22,30 @@ services:
       - "--log.format=common"
       - "--log.filePath=/var/log/traefik/traefik.log"
       - "--accesslog=true"
-      - "--accesslog.filepath=/var/log/traefik/access-log"
+      - "--accesslog.filepath=/var/log/traefik/access.log"
     deploy:
       placement:
         constraints:
           - node.role == manager
       labels:
+        # Habilita o Traefik no Swarm
         - "traefik.enable=true"
+
+        # Middleware para redirecionar HTTP → HTTPS
         - "traefik.http.middlewares.redirect-https.redirectscheme.scheme=https"
         - "traefik.http.middlewares.redirect-https.redirectscheme.permanent=true"
-        - "traefik.http.routers.http-catchall.rule=hostregexp(`{host:.+}`)"
+
+        # Catch-all em HTTP (porta 8888) que aplica o redirect
+        - "traefik.http.routers.http-catchall.rule=HostRegexp(`{host:.+}`)"
         - "traefik.http.routers.http-catchall.entrypoints=web"
         - "traefik.http.routers.http-catchall.middlewares=redirect-https@docker"
         - "traefik.http.routers.http-catchall.priority=1"
+
+        # Router que expõe o dashboard em HTTPS (porta 8443)
+        - "traefik.http.routers.traefik-dashboard.rule=Host(`31.97.24.252`)"
+        - "traefik.http.routers.traefik-dashboard.entrypoints=websecure"
+        - "traefik.http.routers.traefik-dashboard.service=api@internal"
+        - "traefik.http.routers.traefik-dashboard.tls=true"
     volumes:
       - "/var/run/docker.sock:/var/run/docker.sock:ro"
       - "vol_certificates:/etc/traefik/letsencrypt"
@@ -50,7 +60,6 @@ services:
       - network_public
 
 volumes:
-
   vol_shared:
     external: true
     name: volume_swarm_shared
@@ -62,4 +71,3 @@ networks:
   network_public:
     external: true
     name: network_public
-
